@@ -917,7 +917,8 @@
             
             try {
                 await updateAllPrices();
-                alert('汇率更新完成！');
+                // 移除了烦人的弹窗提示
+                console.log('✅ 汇率更新完成');
             } catch (error) {
                 console.error('手动更新失败:', error);
                 alert('更新过程中出现错误，请查看控制台');
