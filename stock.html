@@ -496,15 +496,14 @@
             <button class="btn success" onclick="openAddModal()">➕ 添加股票</button>
             <button class="btn" onclick="updatePricesManually()">🔄 立即更新</button>
             <button class="btn" onclick="exportData()">📊 导出数据</button>
-            <button class="btn danger" onclick="clearAllStocks()">🗑️ 清空持仓</button>
             
             <div class="auto-refresh">
                 <span>自动更新：</span>
                 <label class="switch">
-                    <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+                    <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()" checked>
                     <span class="slider"></span>
                 </label>
-                <div class="auto-update-status inactive" id="autoUpdateStatus">已关闭</div>
+                <div class="auto-update-status active" id="autoUpdateStatus">每小时自动更新</div>
             </div>
         </div>
 
@@ -694,7 +693,7 @@
         ];
 
         let autoRefreshInterval;
-        let isAutoRefreshEnabled = false;
+        let isAutoRefreshEnabled = true; // 默认开启
         let editingStockId = null;
         let editingSharesStockId = null;
         let nextUpdateTime = null;
@@ -834,7 +833,6 @@
         // 手动立即更新
         async function updatePricesManually() {
             if (portfolio.length === 0) {
-                alert('暂无股票数据需要更新');
                 return;
             }
 
@@ -842,10 +840,8 @@
             
             try {
                 await updateAllPrices();
-                alert('价格更新完成！');
             } catch (error) {
                 console.error('手动更新失败:', error);
-                alert('更新过程中出现错误，请查看控制台');
             } finally {
                 document.body.classList.remove('loading');
             }
@@ -860,7 +856,6 @@
             
             if (isAutoRefreshEnabled) {
                 if (portfolio.length === 0) {
-                    alert('请先添加股票后再启用自动更新');
                     checkbox.checked = false;
                     return;
                 }
@@ -905,408 +900,3 @@
             tbody.innerHTML = portfolio.map(stock => {
                 const currentMarketValue = stock.shares * stock.currentPrice;
                 const buyMarketValue = stock.shares * stock.buyPrice;
-                const totalProfit = currentMarketValue - buyMarketValue;
-                const profitPercent = buyMarketValue > 0 ? ((totalProfit / buyMarketValue) * 100) : 0;
-                const priceChangePercent = stock.buyPrice > 0 ? (((stock.currentPrice - stock.buyPrice) / stock.buyPrice) * 100) : 0;
-                const percentage = totalValue > 0 ? (currentMarketValue / totalValue * 100).toFixed(2) : 0;
-                
-                let statusClass = 'status ';
-                let statusText = '';
-                
-                switch(stock.status) {
-                    case 'success':
-                        statusClass += 'success';
-                        statusText = '正常';
-                        break;
-                    case 'error':
-                        statusClass += 'error';
-                        statusText = '错误';
-                        break;
-                    case 'loading':
-                        statusClass += 'loading';
-                        statusText = '更新中...';
-                        break;
-                }
-
-                const profitClass = totalProfit > 0 ? 'positive' : totalProfit < 0 ? 'negative' : 'neutral';
-                const changeClass = priceChangePercent > 0 ? 'positive' : priceChangePercent < 0 ? 'negative' : 'neutral';
-
-                return `
-                    <tr>
-                        <td>
-                            <div class="stock-name">${stock.name}</div>
-                            <div class="stock-code">(${stock.code})</div>
-                        </td>
-                        <td>
-                            <span style="font-weight: 600;">${stock.shares.toLocaleString()} 股</span>
-                            <div style="margin-top: 5px;">
-                                <button class="btn small" onclick="openSharesModal(${stock.id})" title="修改数量">✏️</button>
-                            </div>
-                        </td>
-                        <td class="price">¥${stock.buyPrice.toLocaleString()}</td>
-                        <td class="price">¥${stock.currentPrice.toLocaleString()}</td>
-                        <td>
-                            <span class="percentage ${changeClass}">${priceChangePercent >= 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%</span>
-                        </td>
-                        <td class="price">¥${currentMarketValue.toLocaleString()}</td>
-                        <td class="${profitClass}">
-                            <div class="price">${totalProfit >= 0 ? '+' : ''}¥${totalProfit.toLocaleString()}</div>
-                            <div class="percentage ${profitClass}">${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%</div>
-                        </td>
-                        <td>
-                            <span class="percentage neutral">${percentage}%</span>
-                        </td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="btn small" onclick="editStock(${stock.id})" title="编辑">✏️</button>
-                                <button class="btn small danger" onclick="deleteStock(${stock.id})" title="删除">🗑️</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        // 更新统计信息
-        function updateStats() {
-            const totalCurrentValue = portfolio.reduce((sum, stock) => sum + (stock.shares * stock.currentPrice), 0);
-            const totalBuyValue = portfolio.reduce((sum, stock) => sum + (stock.shares * stock.buyPrice), 0);
-            const totalGain = totalCurrentValue - totalBuyValue;
-            const gainPercent = totalBuyValue > 0 ? ((totalGain / totalBuyValue) * 100) : 0;
-            
-            document.getElementById('totalValue').textContent = `¥${totalCurrentValue.toLocaleString()}`;
-            document.getElementById('stockCount').textContent = portfolio.length;
-            
-            document.getElementById('totalGain').textContent = `${totalGain >= 0 ? '+' : ''}¥${totalGain.toLocaleString()}`;
-            document.getElementById('totalGain').className = totalGain >= 0 ? 'stat-value positive' : 'stat-value negative';
-            
-            document.getElementById('totalGainPercent').textContent = `${gainPercent >= 0 ? '+' : ''}${gainPercent.toFixed(2)}%`;
-            document.getElementById('totalGainPercent').className = gainPercent >= 0 ? 'stat-value positive' : 'stat-value negative';
-        }
-
-        // 更新饼图
-        function updateChart() {
-            const chartContainer = document.getElementById('chartContainer');
-            
-            if (portfolio.length === 0) {
-                chartContainer.style.display = 'none';
-                return;
-            }
-            
-            chartContainer.style.display = 'block';
-            
-            const canvas = document.getElementById('portfolioChart');
-            const ctx = canvas.getContext('2d');
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const radius = 150;
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const totalValue = portfolio.reduce((sum, stock) => sum + (stock.shares * stock.currentPrice), 0);
-            
-            if (totalValue === 0) return;
-            
-            const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00c9ff', '#92fe9d', '#fa709a', '#fee140', '#fa8072'];
-            
-            let currentAngle = -Math.PI / 2;
-
-            portfolio.forEach((stock, index) => {
-                const marketValue = stock.shares * stock.currentPrice;
-                const percentage = marketValue / totalValue;
-                const sliceAngle = percentage * 2 * Math.PI;
-
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-                ctx.closePath();
-                ctx.fillStyle = colors[index % colors.length];
-                ctx.fill();
-
-                if (percentage > 0.05) {
-                    const labelAngle = currentAngle + sliceAngle / 2;
-                    const labelX = centerX + Math.cos(labelAngle) * (radius * 0.7);
-                    const labelY = centerY + Math.sin(labelAngle) * (radius * 0.7);
-                    
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 12px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(`${(percentage * 100).toFixed(1)}%`, labelX, labelY);
-                }
-
-                currentAngle += sliceAngle;
-            });
-
-            // 绘制图例
-            portfolio.forEach((stock, index) => {
-                const legendY = 50 + index * 25;
-                ctx.fillStyle = colors[index % colors.length];
-                ctx.fillRect(20, legendY, 15, 15);
-                
-                ctx.fillStyle = '#333';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'left';
-                ctx.fillText(stock.name.length > 10 ? stock.name.substring(0, 10) + '...' : stock.name, 45, legendY + 12);
-            });
-        }
-
-        // 弹窗管理
-        function openAddModal() {
-            document.getElementById('modalTitle').textContent = '添加股票';
-            document.getElementById('stockForm').reset();
-            editingStockId = null;
-            document.getElementById('stockModal').style.display = 'block';
-        }
-
-        function closeModal() {
-            document.getElementById('stockModal').style.display = 'none';
-            editingStockId = null;
-        }
-
-        function editStock(id) {
-            const stock = portfolio.find(s => s.id === id);
-            if (!stock) return;
-
-            document.getElementById('modalTitle').textContent = '编辑股票';
-            document.getElementById('stockName').value = stock.name;
-            document.getElementById('stockCode').value = stock.code;
-            document.getElementById('stockShares').value = stock.shares;
-            document.getElementById('stockBuyPrice').value = stock.buyPrice;
-            document.getElementById('stockPrice').value = stock.currentPrice;
-            editingStockId = id;
-            document.getElementById('stockModal').style.display = 'block';
-        }
-
-        // 持股数量修改弹窗
-        function openSharesModal(id) {
-            const stock = portfolio.find(s => s.id === id);
-            if (!stock) return;
-
-            document.getElementById('currentStockName').textContent = stock.name;
-            document.getElementById('currentStockCode').textContent = stock.code;
-            document.getElementById('currentShares').textContent = stock.shares;
-            document.getElementById('newShares').value = stock.shares;
-            editingSharesStockId = id;
-            document.getElementById('sharesModal').style.display = 'block';
-        }
-
-        function closeSharesModal() {
-            document.getElementById('sharesModal').style.display = 'none';
-            editingSharesStockId = null;
-        }
-
-        function changeShares(amount) {
-            const input = document.getElementById('newShares');
-            const currentValue = parseInt(input.value) || 0;
-            const newValue = Math.max(0, currentValue + amount);
-            input.value = newValue;
-        }
-
-        function validateShares() {
-            const input = document.getElementById('newShares');
-            if (input.value < 0) input.value = 0;
-        }
-
-        function saveShares() {
-            if (editingSharesStockId === null) return;
-
-            const newShares = parseInt(document.getElementById('newShares').value);
-            if (isNaN(newShares) || newShares < 0) {
-                alert('请输入有效的股数');
-                return;
-            }
-
-            const stockIndex = portfolio.findIndex(s => s.id === editingSharesStockId);
-            if (stockIndex !== -1) {
-                if (newShares === 0) {
-                    if (confirm('股数为0将删除该股票，确定继续吗？')) {
-                        portfolio.splice(stockIndex, 1);
-                    } else {
-                        return;
-                    }
-                } else {
-                    portfolio[stockIndex].shares = newShares;
-                }
-
-                saveData();
-                renderTable();
-                updateStats();
-                updateChart();
-                closeSharesModal();
-            }
-        }
-
-        // 表单提交
-        document.getElementById('stockForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const name = document.getElementById('stockName').value.trim();
-            const code = document.getElementById('stockCode').value.trim();
-            const shares = parseInt(document.getElementById('stockShares').value);
-            const buyPrice = parseFloat(document.getElementById('stockBuyPrice').value);
-            const currentPrice = parseFloat(document.getElementById('stockPrice').value);
-
-            if (!name || !code || isNaN(shares) || isNaN(buyPrice) || isNaN(currentPrice) || shares <= 0 || buyPrice <= 0 || currentPrice <= 0) {
-                alert('请填写所有必填字段，并确保数值有效');
-                return;
-            }
-
-            const existingStock = portfolio.find(s => s.code === code && s.id !== editingStockId);
-            if (existingStock) {
-                alert('该股票代码已存在');
-                return;
-            }
-
-            if (editingStockId) {
-                const stockIndex = portfolio.findIndex(s => s.id === editingStockId);
-                if (stockIndex !== -1) {
-                    portfolio[stockIndex] = {
-                        ...portfolio[stockIndex],
-                        name,
-                        code,
-                        shares,
-                        buyPrice,
-                        currentPrice,
-                        status: 'success'
-                    };
-                }
-            } else {
-                const newStock = {
-                    id: generateId(),
-                    name,
-                    code,
-                    shares,
-                    buyPrice,
-                    currentPrice,
-                    currency: '円',
-                    status: 'success'
-                };
-                portfolio.push(newStock);
-            }
-
-            saveData();
-            renderTable();
-            updateStats();
-            updateChart();
-            closeModal();
-        });
-
-        // 删除股票
-        function deleteStock(id) {
-            const stock = portfolio.find(s => s.id === id);
-            if (!stock) return;
-
-            if (confirm(`确定要删除 ${stock.name} (${stock.code}) 吗？`)) {
-                portfolio = portfolio.filter(s => s.id !== id);
-                saveData();
-                renderTable();
-                updateStats();
-                updateChart();
-            }
-        }
-
-        // 清空所有股票
-        function clearAllStocks() {
-            if (portfolio.length === 0) {
-                alert('当前没有持仓股票');
-                return;
-            }
-
-            if (confirm('确定要清空所有持仓股票吗？此操作不可撤销。')) {
-                portfolio = [];
-                saveData();
-                renderTable();
-                updateStats();
-                updateChart();
-            }
-        }
-
-        // 导出数据
-        function exportData() {
-            if (portfolio.length === 0) {
-                alert('暂无数据可导出');
-                return;
-            }
-
-            let csvContent = "股票名称,股票代码,持股数量,买入价格,当前价格,买入市值,当前市值,盈亏金额,盈亏比例,占比\n";
-            
-            const totalCurrentValue = portfolio.reduce((sum, stock) => sum + (stock.shares * stock.currentPrice), 0);
-            let totalBuyValue = 0;
-            let totalProfit = 0;
-            
-            portfolio.forEach(stock => {
-                const currentMarketValue = stock.shares * stock.currentPrice;
-                const buyMarketValue = stock.shares * stock.buyPrice;
-                const profit = currentMarketValue - buyMarketValue;
-                const profitPercent = buyMarketValue > 0 ? ((profit / buyMarketValue) * 100) : 0;
-                const percentage = (currentMarketValue / totalCurrentValue * 100).toFixed(2);
-                
-                totalBuyValue += buyMarketValue;
-                totalProfit += profit;
-                
-                csvContent += `${stock.name},${stock.code},${stock.shares},${stock.buyPrice},${stock.currentPrice},${buyMarketValue},${currentMarketValue},${profit},${profitPercent.toFixed(2)}%,${percentage}%\n`;
-            });
-            
-            const totalProfitPercent = totalBuyValue > 0 ? ((totalProfit / totalBuyValue) * 100) : 0;
-            csvContent += `\n总计,,,,,${totalBuyValue.toLocaleString()},${totalCurrentValue.toLocaleString()},${totalProfit.toLocaleString()},${totalProfitPercent.toFixed(2)}%,100%\n`;
-            csvContent += `导出时间,${new Date().toLocaleString('zh-CN')}\n`;
-            
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `股票投资组合_${new Date().toISOString().split('T')[0]}.csv`;
-            link.click();
-        }
-
-        // 点击模态框外部关闭
-        window.onclick = function(event) {
-            const stockModal = document.getElementById('stockModal');
-            const sharesModal = document.getElementById('sharesModal');
-            
-            if (event.target === stockModal) {
-                closeModal();
-            }
-            if (event.target === sharesModal) {
-                closeSharesModal();
-            }
-        }
-
-        // 键盘快捷键
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeModal();
-                closeSharesModal();
-            }
-            if (event.ctrlKey && event.key === 'n') {
-                event.preventDefault();
-                openAddModal();
-            }
-            if (event.ctrlKey && event.key === 'u') {
-                event.preventDefault();
-                updatePricesManually();
-            }
-        });
-
-        // 初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            renderTable();
-            updateStats();
-            updateChart();
-            
-            if (portfolio.length > 0) {
-                document.getElementById('updateTime').textContent = 
-                    `最后更新: ${new Date().toLocaleTimeString('zh-CN')}`;
-            } else {
-                document.getElementById('updateTime').textContent = '暂无数据';
-            }
-
-            console.log('📈 股票投资组合管理工具已启动');
-            console.log('💡 功能说明:');
-            console.log('  - 自动更新: 开关后每1小时自动获取最新价格');
-            console.log('  - 立即更新: 手动触发价格更新');
-            console.log('  - 数据来源: Yahoo Finance API + 备用方案');
-            console.log('  - 快捷键: Ctrl+N(添加), Ctrl+U(更新), ESC(关闭弹窗)');
-        });
-    </script>
-</body>
-</html>
